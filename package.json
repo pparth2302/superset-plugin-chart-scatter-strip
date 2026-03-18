@@ -1,5 +1,5 @@
 {
-  "name": "superset-plugin-chart-scatter-strip",
+  "name": "@pparth2302/superset-plugin-chart-scatter-strip",
   "version": "0.1.0",
   "description": "A custom Apache Superset plugin that renders scatter plots as a 1xN strip of small multiples using ECharts.",
   "sideEffects": false,
