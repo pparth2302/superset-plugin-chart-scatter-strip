@@ -112,3 +112,5 @@ esm
 lib
 
 .DS_Store
+.npmrc
+.nprc
