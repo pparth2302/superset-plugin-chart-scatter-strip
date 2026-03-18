@@ -2,7 +2,7 @@
 
 `superset-plugin-chart-scatter-strip` is a custom Apache Superset visualization plugin built with Apache ECharts. It renders a scatter plot as a horizontal strip of small multiples, with one panel per process, nest, lane, or station. The current chart is optimized for a `1 x N` layout and defaults to `7` panels.
 
-## What It Is
+## Basic Info
 
 This plugin lets you compare multiple related scatter plots side by side while keeping the same visual structure across panels. Each panel represents one category from a chosen column, and each point uses:
 
