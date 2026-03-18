@@ -46,7 +46,7 @@ npm run build
 From your `superset-frontend` project, install this package from the local path:
 
 ```bash
-npm install /path/to/superset-plugin-chart-scatter-strip
+npm install -S @pparth2302/superset-plugin-chart-scatter-strip --registry=https://npm.pkg.github.com
 ```
 
 ### 3. Register the plugin
@@ -54,7 +54,7 @@ npm install /path/to/superset-plugin-chart-scatter-strip
 Import and register it in your Superset frontend setup:
 
 ```js
-import { SupersetPluginChartScatterStrip } from 'superset-plugin-chart-scatter-strip';
+import { SupersetPluginChartScatterStrip } from '@pparth2302/superset-plugin-chart-scatter-strip';
 
 new SupersetPluginChartScatterStrip()
   .configure({ key: 'superset-plugin-chart-scatter-strip' })
