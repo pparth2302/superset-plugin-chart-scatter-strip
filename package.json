@@ -1,6 +1,6 @@
 {
   "name": "@pparth2302/superset-plugin-chart-scatter-strip",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A custom Apache Superset plugin that renders scatter plots as a 1xN strip of small multiples using ECharts.",
   "sideEffects": false,
   "main": "lib/index.js",
@@ -50,7 +50,7 @@
   "peerDependencies": {
     "@superset-ui/chart-controls": "*",
     "@superset-ui/core": "*",
-    "react": "^16.13.1 || ^17.0.0 || ^18.0.0"
+    "react": "^17.0.2"
   },
   "devDependencies": {
     "@airbnb/config-babel": "^2.0.1",

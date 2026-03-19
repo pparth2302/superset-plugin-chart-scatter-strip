@@ -50,11 +50,19 @@ From your `superset-frontend` project, configure the GitHub Packages scope in `.
 //npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
 ```
 
+Keep the registry scoped to `@pparth2302`. Do not run `npm install` with
+`--registry=https://npm.pkg.github.com`, because that makes npm try to fetch
+public dependencies such as `echarts` from GitHub Packages instead of npmjs.org.
+
 Then install the package normally:
 
 ```bash
 npm install -S @pparth2302/superset-plugin-chart-scatter-strip
 ```
+
+If you see `404 Not Found - GET https://npm.pkg.github.com/echarts`, your
+registry override is too broad. Remove the global `--registry` flag and keep the
+scope mapping in `.npmrc` instead.
 
 ### 3. Register the plugin
 
