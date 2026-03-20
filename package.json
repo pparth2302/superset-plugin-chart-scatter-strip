@@ -19,6 +19,7 @@
     "dev": "BABEL_OUTPUT=esm babel src --extensions \".ts,.tsx,.js,.jsx\" --watch --copy-files --out-dir esm",
     "prebuild": "rimraf {lib,esm,tsconfig.tsbuildinfo}",
     "postbuild": "npm run test",
+    "preview": "node scripts/preview-server.mjs",
     "ts-types": "tsc --build",
     "test": "jest"
   },
