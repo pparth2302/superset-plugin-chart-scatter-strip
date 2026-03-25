@@ -2,6 +2,7 @@ import {
   ChartProps,
   ensureIsArray,
   getMetricLabel,
+  QueryFormData,
   TimeseriesDataRecord,
 } from '@superset-ui/core';
 import {
@@ -46,7 +47,7 @@ export default function transformProps(
   const groupby = ensureIsArray(fd.groupby).filter(Boolean) as string[];
   const metricLabels = ensureIsArray(fd.metrics)
     .filter(Boolean)
-    .map(metric => getMetricLabel(metric as any));
+    .map((metric: unknown) => getMetricLabel(metric as any));
   const panelCount = fd.panelCount ?? fd.panel_count;
   const pointSize = fd.pointSize ?? fd.point_size ?? fd.marker_size;
   const xAxisBounds = parseBounds(fd.x_axis_bounds, fd.x_min, fd.x_max);
