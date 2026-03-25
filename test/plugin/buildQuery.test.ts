@@ -22,20 +22,19 @@ describe('SupersetPluginChartScatterStrip buildQuery', () => {
   const formData = {
     datasource: '5__table',
     granularity_sqla: 'ds',
-    panel_column: 'panel_id',
-    x_column: 'foo',
-    y_column: 'bar',
-    label_column: 'name',
+    x_axis: 'foo',
+    groupby: ['panel_id', 'name'],
+    metrics: ['sum__bar'],
+    series_limit_metric: 'sum__bar',
+    order_desc: true,
     viz_type: 'my_chart',
   };
 
   it('should build the selected scatter-strip columns in query context', () => {
     const queryContext = buildQuery(formData);
     const [query] = queryContext.queries;
-    expect(query.columns).toEqual(['panel_id', 'foo', 'bar', 'name']);
-    expect(query.orderby).toEqual([
-      ['panel_id', true],
-      ['foo', true],
-    ]);
+    expect(query.columns).toEqual(['foo', 'panel_id', 'name']);
+    expect(query.metrics).toEqual(['sum__bar']);
+    expect(query.orderby).toEqual([['sum__bar', false]]);
   });
 });
