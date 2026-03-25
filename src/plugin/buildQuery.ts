@@ -3,6 +3,8 @@ import {
   ensureIsArray,
   getMetricLabel,
   QueryFormData,
+  QueryFormMetric,
+  QueryFormOrderBy,
   QueryObject,
 } from '@superset-ui/core';
 import { contributionOperator } from '@superset-ui/chart-controls';
@@ -12,9 +14,11 @@ export default function buildQuery(formData: QueryFormData) {
   const fd = formData as SupersetPluginChartScatterStripQueryFormData;
   const xAxis = fd.x_axis ?? fd.xColumn ?? fd.x_column;
   const groupby = ensureIsArray(fd.groupby).filter(Boolean) as string[];
-  const metrics = ensureIsArray(fd.metrics).filter(Boolean);
+  const metrics = ensureIsArray(fd.metrics).filter(Boolean) as QueryFormMetric[];
   const seriesLimitMetric =
-    fd.series_limit_metric ?? fd.timeseries_limit_metric ?? null;
+    (fd.series_limit_metric ?? fd.timeseries_limit_metric ?? null) as
+      | QueryFormMetric
+      | null;
   const panelColumn = fd.panel_column ?? fd.panelColumn;
   const xColumn = fd.x_column ?? fd.xColumn ?? xAxis;
   const yColumn = fd.y_column ?? fd.yColumn;
@@ -36,7 +40,7 @@ export default function buildQuery(formData: QueryFormData) {
   }
 
   const sortAscending = !(fd.order_desc ?? true);
-  const orderby = seriesLimitMetric
+  const orderby: QueryFormOrderBy[] = seriesLimitMetric
     ? [[getMetricLabel(seriesLimitMetric as any), sortAscending]]
     : ([
         panelColumn ? [panelColumn, true] : null,

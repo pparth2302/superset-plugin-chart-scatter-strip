@@ -18,6 +18,7 @@
  */
 import {
   QueryFormData,
+  QueryFormMetric,
   TimeseriesDataRecord,
 } from '@superset-ui/core';
 
@@ -88,12 +89,12 @@ export type SupersetPluginChartScatterStripQueryFormData = QueryFormData &
   {
     chart_title?: string;
     x_axis?: string;
-    metrics?: unknown[];
+    metrics?: QueryFormMetric[];
     groupby?: string[];
     contributionMode?: string | null;
     series_limit?: string | number;
-    series_limit_metric?: unknown;
-    timeseries_limit_metric?: unknown;
+    series_limit_metric?: QueryFormMetric;
+    timeseries_limit_metric?: QueryFormMetric;
     order_desc?: boolean;
     truncate_metric?: boolean;
     show_empty_columns?: boolean;
