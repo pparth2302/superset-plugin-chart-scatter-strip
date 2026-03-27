@@ -37,6 +37,39 @@ function parseBounds(
   }) as [number | string | null, number | string | null];
 }
 
+function readPanelQueryConfigs(
+  fd: SupersetPluginChartScatterStripQueryFormData,
+  queriesData: ChartProps['queriesData'],
+) {
+  const configs = [];
+  let queryDataIndex = 0;
+
+  for (let index = 1; index <= 7; index += 1) {
+    const title = fd[`query_${index}_title` as const] ?? '';
+    const yColumn = fd[`query_${index}_y_column` as const];
+    const metric = fd[`query_${index}_metric` as const];
+    const whereSql = fd[`query_${index}_where_sql` as const] ?? '';
+
+    if (!yColumn && !metric) {
+      continue;
+    }
+
+    const metricLabel = metric ? getMetricLabel(metric as any) : undefined;
+    const yField = metricLabel ?? String(yColumn);
+    configs.push({
+      key: `query_${index}`,
+      title: title || yField,
+      yField,
+      yFieldType: (metricLabel ? 'metric' : 'column') as 'metric' | 'column',
+      whereSql,
+      data: (queriesData[queryDataIndex]?.data || []) as TimeseriesDataRecord[],
+    });
+    queryDataIndex += 1;
+  }
+
+  return configs;
+}
+
 export default function transformProps(
   chartProps: ChartProps,
 ): SupersetPluginChartScatterStripProps {
@@ -48,6 +81,9 @@ export default function transformProps(
   const metricLabels = ensureIsArray(fd.metrics)
     .filter(Boolean)
     .map((metric: unknown) => getMetricLabel(metric as any));
+  const panelQueries = readPanelQueryConfigs(fd, queriesData);
+  const queryMode =
+    fd.query_mode ?? (panelQueries.length ? 'panel_queries' : 'split_by_dimension');
   const panelCount = fd.panelCount ?? fd.panel_count;
   const pointSize = fd.pointSize ?? fd.point_size ?? fd.marker_size;
   const xAxisBounds = parseBounds(fd.x_axis_bounds, fd.x_min, fd.x_max);
@@ -58,23 +94,32 @@ export default function transformProps(
     height,
     data: (queriesData[0]?.data || []) as TimeseriesDataRecord[],
     chartTitle: fd.chart_title ?? '',
+    panelHeaderTitle: fd.panel_header_title ?? fd.panelHeaderTitle ?? '',
+    queryMode,
     xAxisColumn,
     metricLabels: metricLabels.length
       ? metricLabels
       : ([fd.yColumn ?? fd.y_column].filter(Boolean) as string[]),
     groupby,
+    panelQueries,
     panelColumn: fd.panelColumn ?? fd.panel_column,
     xColumn: fd.xColumn ?? fd.x_column ?? xAxisColumn,
     yColumn: fd.yColumn ?? fd.y_column,
     labelColumn: fd.labelColumn ?? fd.label_column,
     panelCount: Number(panelCount || 7),
-    pointSize: Number(pointSize || 10),
+    pointSize: Number(pointSize || 6),
     xMin: parseOptionalNumber(fd.xMin ?? fd.x_min),
     xMax: parseOptionalNumber(fd.xMax ?? fd.x_max),
     yMin: parseOptionalNumber(fd.yMin ?? fd.y_min),
     yMax: parseOptionalNumber(fd.yMax ?? fd.y_max),
+    specBandMin: parseOptionalNumber(fd.specBandMin ?? fd.spec_band_min),
+    specBandMax: parseOptionalNumber(fd.specBandMax ?? fd.spec_band_max),
     xAxisBounds,
     yAxisBounds,
+    showSpecBand: fd.showSpecBand ?? fd.show_spec_band ?? true,
+    showSpecLabels: fd.showSpecLabels ?? fd.show_spec_labels ?? true,
+    specBandColor: fd.specBandColor ?? fd.spec_band_color ?? 'rgba(214, 239, 196, 0.85)',
+    specLineColor: fd.specLineColor ?? fd.spec_line_color ?? '#c62828',
     showXAxis: fd.show_x_axis ?? true,
     xAxisTitle: fd.x_axis_title ?? '',
     xAxisTitleMargin: Number(fd.x_axis_title_margin ?? 28),
@@ -100,7 +145,7 @@ export default function transformProps(
     zoomable: fd.zoomable ?? false,
     minorTicks: fd.minor_ticks ?? false,
     minorSplitLine: fd.minorSplitLine ?? false,
-    showLegend: fd.show_legend ?? true,
+    showLegend: fd.show_legend ?? false,
     legendType: fd.legend_type ?? 'scroll',
     legendOrientation: fd.legend_orientation ?? 'top',
     legendMargin: Number(fd.legend_margin ?? 0),

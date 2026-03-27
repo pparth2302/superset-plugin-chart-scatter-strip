@@ -10,6 +10,35 @@ import {
 import { contributionOperator } from '@superset-ui/chart-controls';
 import { SupersetPluginChartScatterStripQueryFormData } from '../types';
 
+function readPanelQueries(fd: SupersetPluginChartScatterStripQueryFormData) {
+  const queries: Array<{
+    title: string;
+    yColumn?: string;
+    metric?: QueryFormMetric;
+    whereSql: string;
+  }> = [];
+
+  for (let index = 1; index <= 7; index += 1) {
+    const title = fd[`query_${index}_title` as const] ?? '';
+    const yColumn = fd[`query_${index}_y_column` as const];
+    const metric = fd[`query_${index}_metric` as const] as QueryFormMetric | undefined;
+    const whereSql = fd[`query_${index}_where_sql` as const] ?? '';
+
+    if (!yColumn && !metric) {
+      continue;
+    }
+
+    queries.push({
+      title,
+      yColumn,
+      metric,
+      whereSql,
+    });
+  }
+
+  return queries;
+}
+
 export default function buildQuery(formData: QueryFormData) {
   const fd = formData as SupersetPluginChartScatterStripQueryFormData;
   const xAxis = fd.x_axis ?? fd.xColumn ?? fd.x_column;
@@ -24,6 +53,38 @@ export default function buildQuery(formData: QueryFormData) {
   const yColumn = fd.y_column ?? fd.yColumn;
   const labelColumn = fd.label_column ?? fd.labelColumn;
   const legacySeries = fd.series;
+  const panelQueries = readPanelQueries(fd);
+  const queryMode =
+    fd.query_mode ?? (panelQueries.length ? 'panel_queries' : 'split_by_dimension');
+
+  if (queryMode === 'panel_queries' && xAxis && panelQueries.length) {
+    return buildQueryContext(formData, (baseQueryObject: QueryObject) =>
+      panelQueries.map(panelQuery => {
+        const columns = [xAxis]
+          .concat(panelQuery.metric ? [] : [panelQuery.yColumn || ''])
+          .concat(labelColumn && !panelQuery.metric ? [labelColumn] : [])
+          .filter(Boolean) as string[];
+        const queryMetrics = panelQuery.metric ? [panelQuery.metric] : [];
+        const baseWhere = baseQueryObject.extras?.where;
+        const mergedWhere = [baseWhere, panelQuery.whereSql].filter(Boolean).join(' AND ');
+
+        return {
+          ...baseQueryObject,
+          columns,
+          metrics: queryMetrics,
+          orderby: xAxis ? ([[xAxis, true]] as QueryFormOrderBy[]) : [],
+          row_limit: Number(fd.row_limit || 5000),
+          series_columns: [],
+          is_timeseries: false,
+          post_processing: [],
+          extras: {
+            ...baseQueryObject.extras,
+            where: mergedWhere || undefined,
+          },
+        };
+      }),
+    );
+  }
 
   const columns = [xAxis, ...groupby].filter(Boolean) as string[];
   if (!columns.length) {

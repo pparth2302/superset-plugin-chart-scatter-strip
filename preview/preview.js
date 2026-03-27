@@ -64,7 +64,11 @@ function linearRegression(points) {
   return { m, b };
 }
 
-function buildOption(config) {
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function buildOption(config, chartWidth, chartHeight) {
   const grouped = new Map();
 
   for (const row of SAMPLE_DATA) {
@@ -76,18 +80,48 @@ function buildOption(config) {
   }
 
   const panelKeys = Array.from(grouped.keys()).slice(0, config.panelCount);
-  const gapPct = 1;
-  const leftPct = 4;
-  const rightPct = 2;
-  const usablePct = 100 - leftPct - rightPct - gapPct * (config.panelCount - 1);
-  const panelWidthPct = usablePct / config.panelCount;
+  const panelTotal = Math.max(panelKeys.length, 1);
+  const frameLeftPct = 1.2;
+  const frameRightPct = 1.2;
+  const frameTopPct = 4;
+  const frameBottomPct = 8;
+  const headerHeightPct = 8;
+  const plotLeftPct = 7;
+  const plotRightPct = 1.5;
+  const plotTopPct = frameTopPct + headerHeightPct;
+  const plotBottomPct = 9;
+  const plotHeightPct = 100 - plotTopPct - plotBottomPct;
+  const panelWidthPct = (100 - plotLeftPct - plotRightPct) / panelTotal;
+  const dividerColor = "#b8b8b8";
+  const splitLineColor = "#dfe7f3";
+  const frameFill = "#ffffff";
+  const frameStrokeColor = "#adadad";
+  const pointColor = "#5c7ac7";
+  const toPixelX = pct => (chartWidth * pct) / 100;
+  const toPixelY = pct => (chartHeight * pct) / 100;
+
+  const allYValues = SAMPLE_DATA.map(row => toNumber(row.measurement_y)).filter(
+    value => value !== null,
+  );
+  const yMin =
+    config.yMin ?? (allYValues.length ? Math.min(...allYValues) : 0);
+  const yMax =
+    config.yMax ?? (allYValues.length ? Math.max(...allYValues) : 1);
+  const safeYMin = yMin === yMax ? yMin - 1 : yMin;
+  const safeYMax = yMin === yMax ? yMax + 1 : yMax;
+
+  const projectYToPixel = value => {
+    const ratio = (safeYMax - value) / (safeYMax - safeYMin || 1);
+    const pct = clamp(plotTopPct + ratio * plotHeightPct, plotTopPct, plotTopPct + plotHeightPct);
+    return toPixelY(pct);
+  };
 
   const grid = panelKeys.map((_, index) => ({
-    left: `${leftPct + index * (panelWidthPct + gapPct)}%`,
-    top: "12%",
+    left: `${plotLeftPct + index * panelWidthPct}%`,
+    top: `${plotTopPct}%`,
     width: `${panelWidthPct}%`,
-    height: "72%",
-    containLabel: true
+    height: `${plotHeightPct}%`,
+    containLabel: false
   }));
 
   const xAxis = panelKeys.map((_, index) => ({
@@ -95,20 +129,47 @@ function buildOption(config) {
     gridIndex: index,
     min: config.xMin ?? "dataMin",
     max: config.xMax ?? "dataMax",
-    name: index === 0 ? "measurement_x" : "",
-    nameLocation: "middle",
-    nameGap: 28
+    boundaryGap: false,
+    axisLine: {
+      show: true,
+      lineStyle: { color: dividerColor }
+    },
+    axisTick: { show: true },
+    axisLabel: {
+      color: "#333333",
+      margin: 10
+    },
+    splitLine: {
+      show: true,
+      lineStyle: {
+        color: splitLineColor
+      }
+    }
   }));
 
   const yAxis = panelKeys.map((_, index) => ({
     type: "value",
     gridIndex: index,
-    min: config.yMin ?? "dataMin",
-    max: config.yMax ?? "dataMax",
+    min: safeYMin,
+    max: safeYMax,
     name: index === 0 ? "measurement_y" : "",
     nameLocation: "middle",
     nameGap: 40,
-    splitLine: { show: true }
+    axisLine: {
+      show: index === 0,
+      lineStyle: { color: dividerColor }
+    },
+    axisTick: { show: index === 0 },
+    axisLabel: {
+      show: index === 0,
+      color: "#333333"
+    },
+    splitLine: {
+      show: true,
+      lineStyle: {
+        color: splitLineColor
+      }
+    }
   }));
 
   const series = [];
@@ -124,7 +185,10 @@ function buildOption(config) {
           return null;
         }
 
-        return [x, y, label];
+        return {
+          value: [x, y],
+          label
+        };
       })
       .filter(Boolean);
 
@@ -134,17 +198,22 @@ function buildOption(config) {
       xAxisIndex: index,
       yAxisIndex: index,
       symbolSize: config.pointSize,
+      itemStyle: {
+        color: pointColor,
+        opacity: 0.9
+      },
       data: points,
       tooltip: {
         formatter(params) {
-          const [x, y, label] = params.data;
-          return `${panelKey}<br/>x: ${x}<br/>y: ${y}${label ? `<br/>label: ${label}` : ""}`;
+          const [x, y] = params.data.value;
+          const { label } = params.data;
+          return `${panelKey}<br/>measurement_x: ${x}<br/>measurement_y: ${y}${label ? `<br/>serial_no: ${label}` : ""}`;
         }
       }
     });
 
     if (config.showRegressionLine) {
-      const xy = points.map(([x, y]) => [x, y]);
+      const xy = points.map(point => point.value);
       const regression = linearRegression(xy);
 
       if (regression) {
@@ -161,7 +230,8 @@ function buildOption(config) {
           silent: true,
           lineStyle: {
             color: "#0f766e",
-            width: 2
+            width: 1.5,
+            type: "dashed"
           },
           data: [
             [minLineX, regression.m * minLineX + regression.b],
@@ -172,18 +242,103 @@ function buildOption(config) {
     }
   });
 
-  const graphic = panelKeys.map((panelKey, index) => ({
-    type: "text",
-    left: `${leftPct + index * (panelWidthPct + gapPct) + panelWidthPct / 2}%`,
-    top: "4%",
-    style: {
-      text: panelKey,
-      textAlign: "center",
-      fontSize: 14,
-      fontWeight: 600,
-      fill: "#1f2328"
+  const graphic = [
+    {
+      type: "rect",
+      z: -20,
+      shape: {
+        x: toPixelX(frameLeftPct),
+        y: toPixelY(frameTopPct),
+        width: toPixelX(100 - frameLeftPct - frameRightPct),
+        height: toPixelY(100 - frameTopPct - frameBottomPct)
+      },
+      style: {
+        fill: frameFill,
+        stroke: frameStrokeColor,
+        lineWidth: 1
+      },
+      silent: true
+    },
+    {
+      type: "line",
+      z: 15,
+      shape: {
+        x1: toPixelX(plotLeftPct),
+        y1: toPixelY(plotTopPct),
+        x2: toPixelX(100 - plotRightPct),
+        y2: toPixelY(plotTopPct)
+      },
+      style: {
+        stroke: dividerColor,
+        lineWidth: 1
+      },
+      silent: true
+    },
+    {
+      type: "text",
+      z: 20,
+      left: chartWidth / 2,
+      top: toPixelY(frameTopPct + 1.2),
+      style: {
+        text: "Nest or Pallet #",
+        textAlign: "center",
+        fill: "#1f2328",
+        fontSize: 16,
+        fontWeight: 600
+      },
+      silent: true
+    },
+    {
+      type: "text",
+      z: 20,
+      left: chartWidth / 2,
+      top: toPixelY(100 - 3.8),
+      style: {
+        text: "measurement_x",
+        textAlign: "center",
+        fill: "#333333",
+        fontSize: 13
+      },
+      silent: true
     }
-  }));
+  ];
+
+  panelKeys.forEach((panelKey, index) => {
+    const xPct = plotLeftPct + index * panelWidthPct;
+
+    graphic.push({
+      type: "text",
+      z: 20,
+      left: toPixelX(xPct + panelWidthPct / 2),
+      top: toPixelY(frameTopPct + 4),
+      style: {
+        text: panelKey.replace("Nest ", ""),
+        textAlign: "center",
+        fill: "#1f2328",
+        fontSize: 14,
+        fontWeight: 500
+      },
+      silent: true
+    });
+
+    if (index > 0) {
+      graphic.push({
+        type: "line",
+        z: 15,
+        shape: {
+          x1: toPixelX(xPct),
+          y1: toPixelY(frameTopPct),
+          x2: toPixelX(xPct),
+          y2: toPixelY(100 - frameBottomPct)
+        },
+        style: {
+          stroke: dividerColor,
+          lineWidth: 1
+        },
+        silent: true
+      });
+    }
+  });
 
   return {
     animation: false,
@@ -213,7 +368,7 @@ const controls = {
 function render() {
   const config = {
     panelCount: Math.max(1, Math.min(7, Number(controls.panelCount.value) || 7)),
-    pointSize: Math.max(2, Number(controls.pointSize.value) || 10),
+    pointSize: Math.max(2, Number(controls.pointSize.value) || 6),
     xMin: parseOptionalNumber(controls.xMin.value),
     xMax: parseOptionalNumber(controls.xMax.value),
     yMin: parseOptionalNumber(controls.yMin.value),
@@ -221,7 +376,10 @@ function render() {
     showRegressionLine: controls.showRegressionLine.checked
   };
 
-  chart.setOption(buildOption(config), true);
+  chart.setOption(
+    buildOption(config, chart.getWidth(), chart.getHeight()),
+    true,
+  );
 }
 
 Object.values(controls).forEach(control => {
@@ -229,6 +387,9 @@ Object.values(controls).forEach(control => {
   control.addEventListener("change", render);
 });
 
-window.addEventListener("resize", () => chart.resize());
+window.addEventListener("resize", () => {
+  chart.resize();
+  render();
+});
 
 render();

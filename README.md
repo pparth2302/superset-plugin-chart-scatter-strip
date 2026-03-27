@@ -2,6 +2,13 @@
 
 `superset-plugin-chart-scatter-strip` is a custom Apache Superset visualization plugin built with Apache ECharts. It renders a scatter plot as a horizontal strip of small multiples, with one panel per process, nest, lane, or station. The current chart is optimized for a `1 x N` layout and defaults to `7` panels.
 
+This plugin is aligned to Apache Superset `6.0.0` frontend compatibility:
+
+- `react` / `react-dom`: `17.0.2`
+- `echarts`: `5.6.0`
+- `@superset-ui/core`: `0.20.4`
+- `@superset-ui/chart-controls`: `0.20.3`
+
 ## Basic Info
 
 This plugin lets you compare multiple related scatter plots side by side while keeping the same visual structure across panels. Each panel represents one category from a chosen column, and each point uses:
@@ -16,6 +23,9 @@ It also supports:
 - configurable panel count
 - configurable point size
 - optional x/y min and max bounds
+- optional spec band min/max with labeled red limit lines
+- joined-panel layout with a shared frame and divider lines
+- optional color split by the second groupby dimension when using a single metric
 - optional per-panel regression lines
 
 ## Why It Exists

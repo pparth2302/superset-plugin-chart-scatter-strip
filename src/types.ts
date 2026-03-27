@@ -22,6 +22,17 @@ import {
   TimeseriesDataRecord,
 } from '@superset-ui/core';
 
+export type ScatterStripQueryMode = 'panel_queries' | 'split_by_dimension';
+
+export interface ScatterStripPanelQueryConfig {
+  key: string;
+  title: string;
+  yField: string;
+  yFieldType: 'column' | 'metric';
+  whereSql: string;
+  data: TimeseriesDataRecord[];
+}
+
 export interface SupersetPluginChartScatterStripStylesProps {
   height: number;
   width: number;
@@ -29,9 +40,12 @@ export interface SupersetPluginChartScatterStripStylesProps {
 
 export interface SupersetPluginChartScatterStripCustomizeProps {
   chartTitle: string;
+  panelHeaderTitle: string;
+  queryMode: ScatterStripQueryMode;
   xAxisColumn?: string;
   metricLabels: string[];
   groupby: string[];
+  panelQueries: ScatterStripPanelQueryConfig[];
   panelColumn?: string;
   xColumn?: string;
   yColumn?: string;
@@ -42,8 +56,14 @@ export interface SupersetPluginChartScatterStripCustomizeProps {
   xMax: number | null;
   yMin: number | null;
   yMax: number | null;
+  specBandMin: number | null;
+  specBandMax: number | null;
   xAxisBounds: [number | string | null, number | string | null];
   yAxisBounds: [number | string | null, number | string | null];
+  showSpecBand: boolean;
+  showSpecLabels: boolean;
+  specBandColor: string;
+  specLineColor: string;
   showXAxis: boolean;
   xAxisTitle: string;
   xAxisTitleMargin: number;
@@ -88,6 +108,8 @@ export interface SupersetPluginChartScatterStripCustomizeProps {
 export type SupersetPluginChartScatterStripQueryFormData = QueryFormData &
   {
     chart_title?: string;
+    panel_header_title?: string;
+    query_mode?: ScatterStripQueryMode;
     x_axis?: string;
     metrics?: QueryFormMetric[];
     groupby?: string[];
@@ -137,6 +159,12 @@ export type SupersetPluginChartScatterStripQueryFormData = QueryFormData &
     x_axis_bounds?: [string | number | null, string | number | null];
     truncateYAxis?: boolean;
     y_axis_bounds?: [string | number | null, string | number | null];
+    spec_band_min?: string | number;
+    spec_band_max?: string | number;
+    show_spec_band?: boolean;
+    show_spec_labels?: boolean;
+    spec_band_color?: string;
+    spec_line_color?: string;
     logAxis?: boolean;
     panelColumn?: string;
     xColumn?: string;
@@ -160,7 +188,42 @@ export type SupersetPluginChartScatterStripQueryFormData = QueryFormData &
     y_min?: string | number;
     y_max?: string | number;
     show_regression_line?: boolean;
+    panelHeaderTitle?: string;
+    specBandMin?: string | number;
+    specBandMax?: string | number;
+    showSpecBand?: boolean;
+    showSpecLabels?: boolean;
+    specBandColor?: string;
+    specLineColor?: string;
     row_limit?: string | number;
+    query_1_title?: string;
+    query_1_y_column?: string;
+    query_1_metric?: QueryFormMetric;
+    query_1_where_sql?: string;
+    query_2_title?: string;
+    query_2_y_column?: string;
+    query_2_metric?: QueryFormMetric;
+    query_2_where_sql?: string;
+    query_3_title?: string;
+    query_3_y_column?: string;
+    query_3_metric?: QueryFormMetric;
+    query_3_where_sql?: string;
+    query_4_title?: string;
+    query_4_y_column?: string;
+    query_4_metric?: QueryFormMetric;
+    query_4_where_sql?: string;
+    query_5_title?: string;
+    query_5_y_column?: string;
+    query_5_metric?: QueryFormMetric;
+    query_5_where_sql?: string;
+    query_6_title?: string;
+    query_6_y_column?: string;
+    query_6_metric?: QueryFormMetric;
+    query_6_where_sql?: string;
+    query_7_title?: string;
+    query_7_y_column?: string;
+    query_7_metric?: QueryFormMetric;
+    query_7_where_sql?: string;
     // Backward-compatible fallback used by the starter test/template.
     series?: string;
   };

@@ -151,14 +151,33 @@ function linearRegression(points: [number, number][]) {
   return { m, b };
 }
 
+function titleCase(value: string) {
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function formatSpecLabel(value: number) {
+  return value.toFixed(3);
+}
+
 export default function ScatterStripChart({
   width,
   height,
   data,
   chartTitle,
+  panelHeaderTitle,
+  queryMode,
   xAxisColumn,
   metricLabels,
   groupby,
+  panelQueries,
   panelColumn,
   xColumn,
   yColumn,
@@ -169,8 +188,14 @@ export default function ScatterStripChart({
   xMax,
   yMin,
   yMax,
+  specBandMin,
+  specBandMax,
   xAxisBounds,
   yAxisBounds,
+  showSpecBand,
+  showSpecLabels,
+  specBandColor,
+  specLineColor,
   showXAxis,
   xAxisTitle,
   xAxisTitleMargin,
@@ -216,13 +241,21 @@ export default function ScatterStripChart({
 
   const option = useMemo(() => {
     const resolvedXAxis = xAxisColumn || xColumn;
-    const resolvedMetrics = metricLabels.length
-      ? metricLabels
-      : ([yColumn].filter(Boolean) as string[]);
+    const isPanelQueriesMode = queryMode === 'panel_queries' && panelQueries.length > 0;
+    const resolvedMetrics = isPanelQueriesMode
+      ? panelQueries.map(panelQuery => panelQuery.yField)
+      : metricLabels.length
+        ? metricLabels
+        : ([yColumn].filter(Boolean) as string[]);
     const panelDimension = panelColumn || groupby[0];
-    const tooltipDimensions = groupby.slice(panelDimension ? 1 : 0);
+    const nonPanelDimensions = groupby.filter(column => column && column !== panelDimension);
+    const colorDimension =
+      !isPanelQueriesMode && resolvedMetrics.length === 1 ? nonPanelDimensions[0] : undefined;
+    const tooltipDimensions = isPanelQueriesMode
+      ? []
+      : nonPanelDimensions.filter(column => column !== colorDimension);
 
-    if (!resolvedXAxis || !resolvedMetrics.length) {
+    if (!resolvedXAxis || (!resolvedMetrics.length && !isPanelQueriesMode)) {
       return {
         animation: false,
         tooltip: { trigger: 'item' },
@@ -234,7 +267,10 @@ export default function ScatterStripChart({
       };
     }
 
-    const axisType = detectAxisType(data.map(row => row[resolvedXAxis]));
+    const sourceData = isPanelQueriesMode
+      ? panelQueries.flatMap(panelQuery => panelQuery.data)
+      : data;
+    const axisType = detectAxisType(sourceData.map(row => row[resolvedXAxis]));
     const xFormatter =
       axisType === 'time'
         ? getTimeFormatter(tooltipTimeFormat || xAxisTimeFormat || 'smart_date')
@@ -254,28 +290,66 @@ export default function ScatterStripChart({
       colorScheme || 'supersetColors',
     );
     const grouped = new Map<string, Record<string, any>[]>();
+    let panelDefinitions: Array<{
+      panelKey: string;
+      rows: Record<string, any>[];
+      yField: string;
+    }> = [];
 
-    for (const row of data) {
-      const panel = panelDimension ? String(row[panelDimension]) : 'All';
-      if (!grouped.has(panel)) grouped.set(panel, []);
-      grouped.get(panel)!.push(row);
+    if (isPanelQueriesMode) {
+      panelDefinitions = panelQueries
+        .slice(0, panelCount || panelQueries.length || 1)
+        .map(panelQuery => ({
+          panelKey: panelQuery.title,
+          rows: panelQuery.data as Record<string, any>[],
+          yField: panelQuery.yField,
+        }));
+    } else {
+      for (const row of data) {
+        const panel = panelDimension ? String(row[panelDimension]) : 'All';
+        if (!grouped.has(panel)) grouped.set(panel, []);
+        grouped.get(panel)!.push(row);
+      }
+
+      panelDefinitions = Array.from(grouped.keys())
+        .sort((a, b) => {
+          const na = Number(a);
+          const nb = Number(b);
+          if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+          return a.localeCompare(b);
+        })
+        .slice(0, panelCount || grouped.size || 1)
+        .map(panelKey => ({
+          panelKey,
+          rows: grouped.get(panelKey) || [],
+          yField: resolvedMetrics[0] || '',
+        }));
     }
 
-    const panelKeys = Array.from(grouped.keys())
-      .sort((a, b) => {
-        const na = Number(a);
-        const nb = Number(b);
-        if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
-        return a.localeCompare(b);
-      })
-      .slice(0, panelCount || grouped.size || 1);
-
-    const gapPct = 1;
-    const leftPct = 4;
-    const rightPct = 2;
-    const panelTotal = Math.max(panelKeys.length, 1);
-    const usablePct = 100 - leftPct - rightPct - gapPct * (panelTotal - 1);
+    const panelTotal = Math.max(panelDefinitions.length, 1);
+    const gapPct = 0;
+    const frameLeftPct = 1;
+    const frameRightPct = 1;
+    const plotLeftPct = showYAxis ? 6.5 : 2;
+    const plotRightPct = 1.5;
+    const legendTopOffset =
+      showLegend && legendOrientation === 'top' ? 7 + legendMargin : 0;
+    const titleOffset = chartTitle ? 7 : 0;
+    const frameTopPct = 5 + titleOffset + legendTopOffset;
+    const headerHeightPct = 6;
+    const plotTopPct = frameTopPct + headerHeightPct;
+    const frameBottomPct = showXAxis ? 8.5 : 3.5;
+    const plotBottomPct = showXAxis ? 8 : 1.5;
+    const plotHeightPct = Math.max(28, 100 - plotTopPct - plotBottomPct);
+    const usablePct =
+      100 - plotLeftPct - plotRightPct - gapPct * (panelTotal - 1);
     const panelWidthPct = usablePct / panelTotal;
+    const toPixelX = (pct: number) => (width * pct) / 100;
+    const toPixelY = (pct: number) => (height * pct) / 100;
+    const dividerColor = '#b9b9b9';
+    const splitLineColor = '#e0e0e0';
+    const frameStrokeColor = '#a8a8a8';
+    const frameFill = '#ffffff';
 
     const metricOrder = [...resolvedMetrics].sort((leftMetric, rightMetric) => {
       if (sortSeriesType === 'name') {
@@ -284,10 +358,10 @@ export default function ScatterStripChart({
           : rightMetric.localeCompare(leftMetric);
       }
 
-      const leftValues = data
+      const leftValues = sourceData
         .map(row => toNum(row[leftMetric]))
         .filter((value): value is number => value !== null);
-      const rightValues = data
+      const rightValues = sourceData
         .map(row => toNum(row[rightMetric]))
         .filter((value): value is number => value !== null);
       const leftValue = formatSortValue(leftValues, sortSeriesType);
@@ -297,17 +371,102 @@ export default function ScatterStripChart({
       return (leftValue - rightValue) * direction;
     });
 
-    const grid = panelKeys.map((_, i) => ({
-      left: `${leftPct + i * (panelWidthPct + gapPct)}%`,
-      top: showLegend && legendOrientation === 'top' ? '18%' : '12%',
+    const colorSeriesOrder = !isPanelQueriesMode && colorDimension
+      ? Array.from(
+          new Set(
+            sourceData
+              .map(row => row[colorDimension])
+              .filter(value => value !== null && typeof value !== 'undefined' && value !== ''),
+          ),
+        )
+          .map(value => String(value))
+          .sort((leftValue, rightValue) => {
+            if (sortSeriesType === 'name') {
+              return sortSeriesAscending
+                ? leftValue.localeCompare(rightValue)
+                : rightValue.localeCompare(leftValue);
+            }
+
+            const leftValues = sourceData
+              .filter(row => String(row[colorDimension]) === leftValue)
+              .map(row => toNum(row[resolvedMetrics[0]]))
+              .filter((value): value is number => value !== null);
+            const rightValues = sourceData
+              .filter(row => String(row[colorDimension]) === rightValue)
+              .map(row => toNum(row[resolvedMetrics[0]]))
+              .filter((value): value is number => value !== null);
+            const leftMetricValue = formatSortValue(leftValues, sortSeriesType);
+            const rightMetricValue = formatSortValue(rightValues, sortSeriesType);
+            const direction = sortSeriesAscending ? 1 : -1;
+
+            return (leftMetricValue - rightMetricValue) * direction;
+          })
+      : [];
+
+    const legendData = isPanelQueriesMode
+      ? panelDefinitions.map(panel => panel.panelKey)
+      : colorDimension
+        ? colorSeriesOrder
+        : metricOrder;
+
+    const allMetricValues = isPanelQueriesMode
+      ? panelDefinitions.flatMap(panel =>
+          panel.rows
+            .map(row => toNum(row[panel.yField]))
+            .filter((value): value is number => value !== null),
+        )
+      : sourceData.flatMap(row =>
+          resolvedMetrics
+            .map(metric => toNum(row[metric]))
+            .filter((value): value is number => value !== null),
+        );
+    const fallbackMin = allMetricValues.length ? Math.min(...allMetricValues) : 0;
+    const fallbackMax = allMetricValues.length ? Math.max(...allMetricValues) : 1;
+    const axisMinCandidate =
+      (parseAxisBound(yAxisBounds[0], 'value') as number | undefined) ??
+      yMin ??
+      fallbackMin;
+    const axisMaxCandidate =
+      (parseAxisBound(yAxisBounds[1], 'value') as number | undefined) ??
+      yMax ??
+      fallbackMax;
+    const axisMinValue =
+      axisMinCandidate === axisMaxCandidate ? axisMinCandidate - 1 : axisMinCandidate;
+    const axisMaxValue =
+      axisMinCandidate === axisMaxCandidate ? axisMaxCandidate + 1 : axisMaxCandidate;
+    const hasSpecBounds = specBandMin !== null && specBandMax !== null;
+    const normalizedSpecBounds = hasSpecBounds
+      ? [Math.min(specBandMin, specBandMax), Math.max(specBandMin, specBandMax)]
+      : null;
+
+    const projectYToPixel = (value: number) => {
+      const minValue = logAxis ? Math.log10(Math.max(axisMinValue, Number.EPSILON)) : axisMinValue;
+      const maxValue = logAxis ? Math.log10(Math.max(axisMaxValue, Number.EPSILON)) : axisMaxValue;
+      const projectedValue = logAxis
+        ? Math.log10(Math.max(value, Number.EPSILON))
+        : value;
+      const span = maxValue - minValue || 1;
+      const offset = (maxValue - projectedValue) / span;
+      return toPixelY(
+        clamp(
+          plotTopPct + offset * plotHeightPct,
+          plotTopPct,
+          plotTopPct + plotHeightPct,
+        ),
+      );
+    };
+
+    const grid = panelDefinitions.map((_, index) => ({
+      left: `${plotLeftPct + index * (panelWidthPct + gapPct)}%`,
+      top: `${plotTopPct}%`,
       width: `${panelWidthPct}%`,
-      height: chartTitle ? '66%' : '72%',
-      containLabel: true,
+      height: `${plotHeightPct}%`,
+      containLabel: false,
     }));
 
-    const xAxis = panelKeys.map((_, i) => ({
+    const xAxis = panelDefinitions.map((_, index) => ({
       type: axisType,
-      gridIndex: i,
+      gridIndex: index,
       min:
         parseAxisBound(xAxisBounds[0], axisType) ??
         parseAxisBound(xMin, axisType) ??
@@ -316,14 +475,25 @@ export default function ScatterStripChart({
         parseAxisBound(xAxisBounds[1], axisType) ??
         parseAxisBound(xMax, axisType) ??
         (truncateXAxis ? 'dataMax' : undefined),
-      name: i === 0 ? String(xAxisTitle || resolvedXAxis) : '',
-      nameLocation: 'middle',
-      nameGap: xAxisTitleMargin,
       show: showXAxis,
+      boundaryGap: axisType === 'category',
       minorTick: { show: minorTicks },
+      axisLine: {
+        show: showXAxis,
+        lineStyle: {
+          color: dividerColor,
+        },
+      },
+      axisTick: {
+        show: showXAxis,
+      },
       axisLabel: {
+        show: showXAxis,
+        color: '#262626',
+        margin: 12,
         rotate: xAxisLabelRotation,
-        interval: xAxisLabelInterval === 'auto' ? 'auto' : Number(xAxisLabelInterval),
+        interval:
+          xAxisLabelInterval === 'auto' ? 'auto' : Number(xAxisLabelInterval),
         formatter: (value: unknown) => {
           if (axisType === 'time' && xAxisFormatter) {
             return xAxisFormatter(value as any);
@@ -332,34 +502,90 @@ export default function ScatterStripChart({
           return String(value ?? '');
         },
       },
+      splitLine: {
+        show: false,
+      },
     }));
 
-    const yAxis = panelKeys.map((_, i) => ({
+    const yAxis = panelDefinitions.map((_, index) => ({
       type: logAxis ? 'log' : 'value',
-      gridIndex: i,
-      min: parseAxisBound(yAxisBounds[0], 'value') ?? yMin ?? (truncateYAxis ? 'dataMin' : undefined),
-      max: parseAxisBound(yAxisBounds[1], 'value') ?? yMax ?? (truncateYAxis ? 'dataMax' : undefined),
-      name: i === 0 ? String(yAxisTitle || resolvedMetrics.join(', ')) : '',
+      gridIndex: index,
+      min:
+        parseAxisBound(yAxisBounds[0], 'value') ??
+        yMin ??
+        (truncateYAxis ? 'dataMin' : undefined),
+      max:
+        parseAxisBound(yAxisBounds[1], 'value') ??
+        yMax ??
+        (truncateYAxis ? 'dataMax' : undefined),
+      name:
+        index === 0 && showYAxis
+          ? String(yAxisTitle || (isPanelQueriesMode ? 'Value' : resolvedMetrics.join(', ')))
+          : '',
       nameLocation: 'middle',
       nameGap: yAxisTitleMargin,
       position: yAxisTitlePosition === 'Right' ? 'right' : 'left',
-      show: showYAxis,
-      minorTick: { show: minorTicks },
-      minorSplitLine: { show: minorSplitLine },
+      minorTick: { show: index === 0 && minorTicks },
+      minorSplitLine: {
+        show: minorSplitLine,
+        lineStyle: {
+          color: '#f0f0f0',
+        },
+      },
+      axisLine: {
+        show: index === 0 && showYAxis,
+        lineStyle: {
+          color: dividerColor,
+        },
+      },
+      axisTick: {
+        show: index === 0 && showYAxis,
+      },
       axisLabel: {
+        show: index === 0 && showYAxis,
+        color: '#262626',
         formatter: (value: number) => yFormatter(value),
       },
-      splitLine: { show: true },
+      splitLine: {
+        show: true,
+        lineStyle: {
+          color: splitLineColor,
+          type: 'solid',
+        },
+      },
       scale: truncateYAxis,
     }));
 
     const series: any[] = [];
 
-    panelKeys.forEach((panelKey, i) => {
-      const rows = grouped.get(panelKey) || [];
+    panelDefinitions.forEach(({ panelKey, rows, yField }, index) => {
+      let decoratedPanel = false;
 
-      metricOrder.forEach(metricLabel => {
-        const pts = rows
+      const seriesDefinitions = isPanelQueriesMode
+        ? [
+            {
+              seriesName: panelKey,
+              metricLabel: yField,
+              rows,
+              colorKey: panelKey,
+            },
+          ]
+        : colorDimension
+          ? colorSeriesOrder.map(seriesName => ({
+              seriesName,
+              metricLabel: resolvedMetrics[0],
+              rows: rows.filter(row => String(row[colorDimension]) === seriesName),
+              colorKey: seriesName,
+            }))
+          : metricOrder.map(metricLabel => ({
+              seriesName: metricLabel,
+              metricLabel,
+              rows,
+              colorKey: metricLabel,
+            }));
+
+      seriesDefinitions.forEach(({ seriesName, metricLabel, rows: seriesRows, colorKey }) => {
+        const points = seriesRows
           .map(row => {
             const rawX = asAxisValue(row[resolvedXAxis], axisType);
             const rawY = toNum(row[metricLabel]);
@@ -371,6 +597,11 @@ export default function ScatterStripChart({
             const tooltipValues = tooltipDimensions
               .map(column => `${column}: ${row[column] ?? ''}`)
               .filter(Boolean);
+
+            if (!isPanelQueriesMode && colorDimension && row[colorDimension] != null) {
+              tooltipValues.unshift(`${colorDimension}: ${row[colorDimension]}`);
+            }
+
             if (labelColumn && row[labelColumn] != null) {
               tooltipValues.unshift(`${labelColumn}: ${row[labelColumn]}`);
             }
@@ -389,29 +620,33 @@ export default function ScatterStripChart({
             compareAxisValues(left.value[0], right.value[0], axisType),
           );
 
-        if (!pts.length) {
+        if (!points.length) {
           return;
         }
 
         const isLineMode = area || stack;
+        const color = colorScale(colorKey);
+
         series.push({
-          name: metricLabel,
+          name: seriesName,
           type: isLineMode ? 'line' : 'scatter',
-          xAxisIndex: i,
-          yAxisIndex: i,
+          xAxisIndex: index,
+          yAxisIndex: index,
           stack: stack ? 'stack' : undefined,
           smooth: area,
           showSymbol: markerEnabled || !isLineMode,
           symbolSize: pointSize,
           itemStyle: {
-            color: colorScale(metricLabel),
+            color,
+            opacity: isLineMode ? 1 : 0.9,
           },
           lineStyle: {
-            color: colorScale(metricLabel),
+            color,
+            width: isLineMode ? 2 : 1,
           },
           areaStyle: area
             ? {
-                opacity: 0.2,
+                opacity: 0.18,
               }
             : undefined,
           label: showValue
@@ -421,35 +656,69 @@ export default function ScatterStripChart({
                 position: 'top',
               }
             : undefined,
-          data: pts,
+          markArea:
+            !decoratedPanel && normalizedSpecBounds && showSpecBand
+              ? {
+                  silent: true,
+                  itemStyle: {
+                    color: specBandColor,
+                  },
+                  data: [
+                    [
+                      { yAxis: normalizedSpecBounds[0] },
+                      { yAxis: normalizedSpecBounds[1] },
+                    ],
+                  ],
+                }
+              : undefined,
+          markLine:
+            !decoratedPanel && normalizedSpecBounds
+              ? {
+                  silent: true,
+                  symbol: 'none',
+                  lineStyle: {
+                    color: specLineColor,
+                    width: 1.5,
+                  },
+                  label: {
+                    show: false,
+                  },
+                  data: normalizedSpecBounds.map(bound => ({ yAxis: bound })),
+                }
+              : undefined,
+          data: points,
         });
 
-        if (showRegressionLine) {
-          const xy = pts.map((entry: any) => [entry.value[0], entry.value[1]] as [number, number]);
-          const numericPoints = xy.filter(
-            ([x, y]) => typeof x === 'number' && typeof y === 'number',
-          );
-          const reg = linearRegression(numericPoints);
+        decoratedPanel = decoratedPanel || Boolean(normalizedSpecBounds);
 
-          if (reg && numericPoints.length) {
+        if (showRegressionLine) {
+          const numericPoints = points
+            .map((entry: any) => [entry.value[0], entry.value[1]] as [number, number])
+            .filter(
+              ([x, y]) => typeof x === 'number' && typeof y === 'number',
+            );
+          const regression = linearRegression(numericPoints);
+
+          if (regression && numericPoints.length) {
             const xs = numericPoints.map(point => point[0]);
             const minLineX = Math.min(...xs);
             const maxLineX = Math.max(...xs);
 
             series.push({
-              name: `${metricLabel} regression`,
+              name: `${seriesName} regression`,
               type: 'line',
-              xAxisIndex: i,
-              yAxisIndex: i,
+              xAxisIndex: index,
+              yAxisIndex: index,
               symbol: 'none',
               silent: true,
               lineStyle: {
-                color: colorScale(metricLabel),
+                color,
                 type: 'dashed',
+                width: 1.5,
               },
               data: [
-                [minLineX, reg.m * minLineX + reg.b],
-                [maxLineX, reg.m * maxLineX + reg.b],
+                [minLineX, regression.m * minLineX + regression.b],
+                [maxLineX, regression.m * maxLineX + regression.b],
               ],
             });
           }
@@ -457,29 +726,151 @@ export default function ScatterStripChart({
       });
     });
 
-    const graphic = panelKeys.map((panelKey, i) => ({
-      type: 'text',
-      left: `${leftPct + i * (panelWidthPct + gapPct) + panelWidthPct / 2}%`,
-      top: chartTitle ? '9%' : '4%',
-      style: {
-        text: panelKey,
-        textAlign: 'center',
-        fontSize: 14,
-        fontWeight: 600,
+    const headerLabel =
+      panelHeaderTitle ||
+      titleCase(isPanelQueriesMode ? 'nest or pallet #' : panelDimension || 'Panels');
+
+    const graphics: any[] = [
+      {
+        type: 'rect',
+        z: -20,
+        shape: {
+          x: toPixelX(frameLeftPct),
+          y: toPixelY(frameTopPct),
+          width: toPixelX(100 - frameLeftPct - frameRightPct),
+          height: toPixelY(100 - frameTopPct - frameBottomPct),
+        },
+        style: {
+          fill: frameFill,
+          stroke: frameStrokeColor,
+          lineWidth: 1,
+        },
+        silent: true,
       },
-    }));
+      {
+        type: 'line',
+        z: 15,
+        shape: {
+          x1: toPixelX(plotLeftPct),
+          y1: toPixelY(plotTopPct),
+          x2: toPixelX(100 - plotRightPct),
+          y2: toPixelY(plotTopPct),
+        },
+        style: {
+          stroke: dividerColor,
+          lineWidth: 1,
+        },
+        silent: true,
+      },
+    ];
+
+    if (headerLabel) {
+      graphics.push({
+        type: 'text',
+        z: 20,
+        left: width / 2,
+        top: toPixelY(frameTopPct + 0.8),
+        style: {
+          text: headerLabel,
+          textAlign: 'center',
+          fill: '#222222',
+          fontSize: 14,
+          fontWeight: 500,
+        },
+        silent: true,
+      });
+    }
+
+    panelDefinitions.forEach(({ panelKey }, index) => {
+      graphics.push({
+        type: 'text',
+        z: 20,
+        left: toPixelX(
+          plotLeftPct + index * (panelWidthPct + gapPct) + panelWidthPct / 2,
+        ),
+        top: toPixelY(frameTopPct + (headerLabel ? 3.1 : 2.2)),
+        style: {
+          text: panelKey,
+          textAlign: 'center',
+          fill: '#1f1f1f',
+          fontSize: 14,
+          fontWeight: 500,
+        },
+        silent: true,
+      });
+    });
+
+    for (let index = 1; index < panelTotal; index += 1) {
+      const xPct = plotLeftPct + index * (panelWidthPct + gapPct);
+      graphics.push({
+        type: 'line',
+        z: 15,
+        shape: {
+          x1: toPixelX(xPct),
+          y1: toPixelY(frameTopPct),
+          x2: toPixelX(xPct),
+          y2: toPixelY(100 - frameBottomPct),
+        },
+        style: {
+          stroke: dividerColor,
+          lineWidth: 1,
+        },
+        silent: true,
+      });
+    }
+
+    if (normalizedSpecBounds && showSpecLabels) {
+      normalizedSpecBounds.forEach(bound => {
+        graphics.push({
+          type: 'text',
+          z: 18,
+          left: toPixelX(frameLeftPct + 0.25),
+          top: projectYToPixel(bound) - 10,
+          style: {
+            text: formatSpecLabel(bound),
+            fill: '#303030',
+            fontSize: 12,
+            backgroundColor: '#ffffff',
+          },
+          silent: true,
+        });
+      });
+    }
+
+    if (showXAxis && (xAxisTitle || resolvedXAxis)) {
+      graphics.push({
+        type: 'text',
+        z: 20,
+        left: width / 2,
+        top: toPixelY(100 - 2.5),
+        style: {
+          text: String(xAxisTitle || resolvedXAxis),
+          textAlign: 'center',
+          fill: '#222222',
+          fontSize: 13,
+          fontWeight: 500,
+        },
+        silent: true,
+      });
+    }
 
     const legendPositions: Record<string, any> = {
-      top: { top: legendMargin, orient: 'horizontal' },
-      bottom: { bottom: legendMargin, orient: 'horizontal' },
-      left: { left: legendMargin, top: 'middle', orient: 'vertical' },
-      right: { right: legendMargin, top: 'middle', orient: 'vertical' },
+      top: {
+        top: chartTitle ? 28 + legendMargin : 6 + legendMargin,
+        orient: 'horizontal',
+      },
+      bottom: { bottom: 4 + legendMargin, orient: 'horizontal' },
+      left: { left: 4 + legendMargin, top: 'middle', orient: 'vertical' },
+      right: { right: 4 + legendMargin, top: 'middle', orient: 'vertical' },
     };
 
     const tooltipFormatter = (params: any) => {
       const items = Array.isArray(params) ? [...params] : [params];
       if (tooltipSortByMetric) {
-        items.sort((left, right) => Number(right.value?.[1] || 0) - Number(left.value?.[1] || 0));
+        items.sort(
+          (left, right) =>
+            Number(right.value?.[1] || 0) - Number(left.value?.[1] || 0),
+        );
       }
 
       const first = items[0];
@@ -493,7 +884,9 @@ export default function ScatterStripChart({
       const rows = items.map(item => {
         const value = Number(item.value?.[1] || 0);
         const meta = item.data?.meta;
-        const percentage = total ? ` (${((value / total) * 100).toFixed(1)}%)` : '';
+        const percentage = total
+          ? ` (${((value / total) * 100).toFixed(1)}%)`
+          : '';
         const extra = meta?.tooltipValues?.length
           ? `<br/>${meta.tooltipValues.join('<br/>')}`
           : '';
@@ -510,6 +903,7 @@ export default function ScatterStripChart({
 
     return {
       animation: false,
+      backgroundColor: 'transparent',
       title: chartTitle
         ? {
             text: chartTitle,
@@ -519,28 +913,37 @@ export default function ScatterStripChart({
         : undefined,
       tooltip: {
         trigger: richTooltip ? 'axis' : 'item',
+        axisPointer: richTooltip
+          ? {
+              type: 'line',
+              lineStyle: {
+                color: '#999999',
+                type: 'dashed',
+              },
+            }
+          : undefined,
         formatter: tooltipFormatter,
       },
       legend: {
         type: legendType,
         show: showLegend,
-        data: metricOrder,
+        data: legendData,
         ...legendPositions[legendOrientation],
       },
       grid,
       xAxis,
       yAxis,
       series,
-      graphic,
+      graphic: graphics,
       dataZoom: zoomable
         ? [
             {
               type: 'slider',
-              xAxisIndex: panelKeys.map((_, index) => index),
+              xAxisIndex: panelDefinitions.map((_, index) => index),
             },
             {
               type: 'inside',
-              xAxisIndex: panelKeys.map((_, index) => index),
+              xAxisIndex: panelDefinitions.map((_, index) => index),
             },
           ]
         : undefined,
@@ -565,17 +968,26 @@ export default function ScatterStripChart({
     minorTicks,
     panelColumn,
     panelCount,
+    panelHeaderTitle,
+    panelQueries,
     pointSize,
+    queryMode,
     richTooltip,
     showLegend,
+    showRegressionLine,
+    showSpecBand,
+    showSpecLabels,
     showTooltipPercentage,
     showTooltipTotal,
-    showRegressionLine,
     showValue,
     showXAxis,
     showYAxis,
     sortSeriesAscending,
     sortSeriesType,
+    specBandColor,
+    specBandMax,
+    specBandMin,
+    specLineColor,
     stack,
     tooltipSortByMetric,
     tooltipTimeFormat,
@@ -593,14 +1005,16 @@ export default function ScatterStripChart({
     xMin,
     yAxisBounds,
     yAxisFormat,
-    yColumn,
-    yMax,
-    yMin,
     yAxisPrefix,
     yAxisSuffix,
     yAxisTitle,
     yAxisTitleMargin,
     yAxisTitlePosition,
+    yColumn,
+    yMax,
+    yMin,
+    width,
+    height,
     zoomable,
   ]);
 

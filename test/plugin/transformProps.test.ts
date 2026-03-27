@@ -49,9 +49,12 @@ describe('SupersetPluginChartScatterStrip transformProps', () => {
       width: 800,
       height: 600,
       chartTitle: 'Scatter Strip',
+      panelHeaderTitle: '',
+      queryMode: 'split_by_dimension',
       xAxisColumn: 'name',
       metricLabels: ['sum__num'],
       groupby: ['panel_id', 'name'],
+      panelQueries: [],
       panelColumn: undefined,
       xColumn: 'name',
       yColumn: undefined,
@@ -62,8 +65,14 @@ describe('SupersetPluginChartScatterStrip transformProps', () => {
       xMax: null,
       yMin: null,
       yMax: null,
+      specBandMin: null,
+      specBandMax: null,
       xAxisBounds: [0, 50],
       yAxisBounds: [null, 100],
+      showSpecBand: true,
+      showSpecLabels: true,
+      specBandColor: 'rgba(214, 239, 196, 0.85)',
+      specLineColor: '#c62828',
       showXAxis: true,
       xAxisTitle: '',
       xAxisTitleMargin: 28,
@@ -89,7 +98,7 @@ describe('SupersetPluginChartScatterStrip transformProps', () => {
       zoomable: false,
       minorTicks: false,
       minorSplitLine: false,
-      showLegend: true,
+      showLegend: false,
       legendType: 'scroll',
       legendOrientation: 'top',
       legendMargin: 0,
@@ -105,5 +114,48 @@ describe('SupersetPluginChartScatterStrip transformProps', () => {
       showRegressionLine: true,
       data: [{ name: 'Hulk', sum__num: 1 }],
     });
+  });
+
+  it('should transform panel query mode into ordered panel configs', () => {
+    const panelQueryChartProps = new ChartProps({
+      formData: {
+        datasource: '3__table',
+        x_axis: 'ds',
+        query_mode: 'panel_queries',
+        query_1_title: 'Nest 1',
+        query_1_y_column: 'nest_1_value',
+        query_2_title: 'Nest 2',
+        query_2_metric: 'MAX(nest_2_value)',
+      },
+      width: 800,
+      height: 600,
+      theme: supersetTheme,
+      queriesData: [
+        { data: [{ ds: '2026-03-18', nest_1_value: 7.2 }] },
+        { data: [{ ds: '2026-03-18', 'MAX(nest_2_value)': 7.1 }] },
+      ],
+    });
+
+    const transformed = transformProps(panelQueryChartProps);
+
+    expect(transformed.queryMode).toBe('panel_queries');
+    expect(transformed.panelQueries).toEqual([
+      {
+        key: 'query_1',
+        title: 'Nest 1',
+        yField: 'nest_1_value',
+        yFieldType: 'column',
+        whereSql: '',
+        data: [{ ds: '2026-03-18', nest_1_value: 7.2 }],
+      },
+      {
+        key: 'query_2',
+        title: 'Nest 2',
+        yField: 'MAX(nest_2_value)',
+        yFieldType: 'metric',
+        whereSql: '',
+        data: [{ ds: '2026-03-18', 'MAX(nest_2_value)': 7.1 }],
+      },
+    ]);
   });
 });

@@ -13,6 +13,69 @@ const sortSeriesChoices = [
   ['max', t('Maximum')],
 ];
 
+const panelQuerySections: ControlPanelConfig['controlPanelSections'] = Array.from(
+  { length: 7 },
+  (_, zeroIndex) => {
+  const index = zeroIndex + 1;
+  return {
+    label: t(`Query ${index}`),
+    expanded: index === 1,
+    tabOverride: 'data' as const,
+    controlSetRows: [
+      [
+        {
+          name: `query_${index}_title`,
+          config: {
+            type: 'TextControl',
+            label: t(`Query ${index} Title`),
+            default: '',
+            renderTrigger: true,
+            description: t('Optional panel title override.'),
+          },
+        },
+      ],
+      [
+        {
+          name: `query_${index}_y_column`,
+          config: {
+            ...sharedControls.series,
+            label: t(`Query ${index} Y Column`),
+            description: t(
+              'Raw Y column or SQL expression for this panel. Use this for point-level scatter values.',
+            ),
+          },
+        },
+      ],
+      [
+        {
+          name: `query_${index}_metric`,
+          config: {
+            ...sharedControls.metric,
+            label: t(`Query ${index} Y Metric / Custom SQL`),
+            description: t(
+              'Optional aggregated metric or custom SQL metric for this panel. If set, it overrides the raw Y column.',
+            ),
+          },
+        },
+      ],
+      [
+        {
+          name: `query_${index}_where_sql`,
+          config: {
+            type: 'TextControl',
+            label: t(`Query ${index} WHERE SQL`),
+            default: '',
+            renderTrigger: true,
+            description: t(
+              'Optional SQL predicate appended only to this panel query, for example nest_id = 1.',
+            ),
+          },
+        },
+      ],
+    ],
+  };
+});
+
 const config: ControlPanelConfig = {
   controlPanelSections: [
     {
@@ -22,11 +85,40 @@ const config: ControlPanelConfig = {
       controlSetRows: [
         [
           {
+            name: 'query_mode',
+            config: {
+              type: 'SelectControl',
+              label: t('Query Mode'),
+              default: 'panel_queries',
+              clearable: false,
+              renderTrigger: true,
+              choices: [
+                ['panel_queries', t('Panel Queries (1-7)')],
+                ['split_by_dimension', t('Split by Dimension (Legacy)')],
+              ],
+              description: t(
+                'Use Panel Queries to define up to seven joined panels with a shared X axis and separate Y definitions.',
+              ),
+            },
+          },
+        ],
+        [
+          {
             name: 'x_axis',
             config: {
               ...sharedControls.series,
               label: t('X-axis'),
               description: t('Shared x-axis field used across all strip panels.'),
+            },
+          },
+          {
+            name: 'label_column',
+            config: {
+              ...sharedControls.series,
+              label: t('Label Column'),
+              description: t(
+                'Optional tooltip label field used for row-level panel queries.',
+              ),
             },
           },
         ],
@@ -133,6 +225,7 @@ const config: ControlPanelConfig = {
       ...sections.annotationsAndLayersControls,
       tabOverride: 'data',
     },
+    ...panelQuerySections,
     {
       label: t('Chart Title'),
       expanded: true,
@@ -146,6 +239,16 @@ const config: ControlPanelConfig = {
               label: t('Chart Title'),
               default: '',
               renderTrigger: true,
+            },
+          },
+          {
+            name: 'panel_header_title',
+            config: {
+              type: 'TextControl',
+              label: t('Panel Header Title'),
+              default: '',
+              renderTrigger: true,
+              description: t('Centered label shown above the joined strip panels.'),
             },
           },
         ],
@@ -343,6 +446,68 @@ const config: ControlPanelConfig = {
         ],
         [
           {
+            name: 'spec_band_min',
+            config: {
+              type: 'TextControl',
+              label: t('Spec Min'),
+              default: '',
+              renderTrigger: true,
+              description: t('Lower red limit line and green band boundary.'),
+            },
+          },
+          {
+            name: 'spec_band_max',
+            config: {
+              type: 'TextControl',
+              label: t('Spec Max'),
+              default: '',
+              renderTrigger: true,
+              description: t('Upper red limit line and green band boundary.'),
+            },
+          },
+        ],
+        [
+          {
+            name: 'show_spec_band',
+            config: {
+              type: 'CheckboxControl',
+              label: t('Show spec band'),
+              default: true,
+              renderTrigger: true,
+            },
+          },
+          {
+            name: 'show_spec_labels',
+            config: {
+              type: 'CheckboxControl',
+              label: t('Show spec labels'),
+              default: true,
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
+            name: 'spec_band_color',
+            config: {
+              type: 'TextControl',
+              label: t('Spec band color'),
+              default: 'rgba(214, 239, 196, 0.85)',
+              renderTrigger: true,
+            },
+          },
+          {
+            name: 'spec_line_color',
+            config: {
+              type: 'TextControl',
+              label: t('Spec line color'),
+              default: '#c62828',
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
             name: 'minorSplitLine',
             config: {
               type: 'CheckboxControl',
@@ -392,6 +557,16 @@ const config: ControlPanelConfig = {
               choices: sortSeriesChoices,
             },
           },
+          {
+            name: 'panel_count',
+            config: {
+              type: 'TextControl',
+              label: t('Panel count'),
+              default: 7,
+              isInt: true,
+              renderTrigger: true,
+            },
+          },
         ],
         [
           {
@@ -400,6 +575,16 @@ const config: ControlPanelConfig = {
               type: 'CheckboxControl',
               label: t('Sort Series Ascending'),
               default: true,
+              renderTrigger: true,
+            },
+          },
+          {
+            name: 'point_size',
+            config: {
+              type: 'TextControl',
+              label: t('Point size'),
+              default: 6,
+              isInt: true,
               renderTrigger: true,
             },
           },
@@ -459,6 +644,15 @@ const config: ControlPanelConfig = {
               renderTrigger: true,
             },
           },
+          {
+            name: 'show_regression_line',
+            config: {
+              type: 'CheckboxControl',
+              label: t('Regression line'),
+              default: false,
+              renderTrigger: true,
+            },
+          },
         ],
         [
           {
@@ -484,7 +678,7 @@ const config: ControlPanelConfig = {
             config: {
               type: 'CheckboxControl',
               label: t('Show legend'),
-              default: true,
+              default: false,
               renderTrigger: true,
             },
           },
