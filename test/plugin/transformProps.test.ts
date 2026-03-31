@@ -121,18 +121,39 @@ describe('SupersetPluginChartScatterStrip transformProps', () => {
       formData: {
         datasource: '3__table',
         x_axis: 'ds',
+        metrics: ['AVG(top_adhesive_od)'],
         query_mode: 'panel_queries',
         query_1_title: 'Nest 1',
-        query_1_y_column: 'nest_1_value',
+        query_1_filters: [
+          {
+            clause: 'WHERE',
+            expressionType: 'SIMPLE',
+            subject: 'nest_num',
+            operator: '==',
+            comparator: '1',
+          },
+        ],
         query_2_title: 'Nest 2',
-        query_2_metric: 'MAX(nest_2_value)',
+        query_2_filters: [
+          {
+            clause: 'WHERE',
+            expressionType: 'SIMPLE',
+            subject: 'nest_num',
+            operator: '==',
+            comparator: '2',
+          },
+        ],
       },
       width: 800,
       height: 600,
       theme: supersetTheme,
       queriesData: [
-        { data: [{ ds: '2026-03-18', nest_1_value: 7.2 }] },
-        { data: [{ ds: '2026-03-18', 'MAX(nest_2_value)': 7.1 }] },
+        {
+          data: [
+            { ds: '2026-03-18', nest_num: '1', 'AVG(top_adhesive_od)': 7.2 },
+            { ds: '2026-03-18', nest_num: '2', 'AVG(top_adhesive_od)': 7.1 },
+          ],
+        },
       ],
     });
 
@@ -143,16 +164,107 @@ describe('SupersetPluginChartScatterStrip transformProps', () => {
       {
         key: 'query_1',
         title: 'Nest 1',
-        yField: 'nest_1_value',
-        yFieldType: 'column',
-        data: [{ ds: '2026-03-18', nest_1_value: 7.2 }],
+        yField: 'AVG(top_adhesive_od)',
+        yFieldType: 'metric',
+        filters: [
+          {
+            clause: 'WHERE',
+            expressionType: 'SIMPLE',
+            subject: 'nest_num',
+            operator: '==',
+            comparator: '1',
+          },
+        ],
+        data: [
+          { ds: '2026-03-18', nest_num: '1', 'AVG(top_adhesive_od)': 7.2 },
+          { ds: '2026-03-18', nest_num: '2', 'AVG(top_adhesive_od)': 7.1 },
+        ],
       },
       {
         key: 'query_2',
         title: 'Nest 2',
-        yField: 'MAX(nest_2_value)',
+        yField: 'AVG(top_adhesive_od)',
         yFieldType: 'metric',
-        data: [{ ds: '2026-03-18', 'MAX(nest_2_value)': 7.1 }],
+        filters: [
+          {
+            clause: 'WHERE',
+            expressionType: 'SIMPLE',
+            subject: 'nest_num',
+            operator: '==',
+            comparator: '2',
+          },
+        ],
+        data: [
+          { ds: '2026-03-18', nest_num: '1', 'AVG(top_adhesive_od)': 7.2 },
+          { ds: '2026-03-18', nest_num: '2', 'AVG(top_adhesive_od)': 7.1 },
+        ],
+      },
+    ]);
+  });
+
+  it('should resolve shared panel metrics with adhoc x-axis labels for rendering', () => {
+    const panelQueryChartProps = new ChartProps({
+      formData: {
+        datasource: '3__table',
+        x_axis: {
+          label: 'PalletDate Time',
+          sqlExpression: 'PalletDate Time',
+          expressionType: 'SQL',
+        } as any,
+        metrics: ['AVG(TopAdhesiveOD)'],
+        query_mode: 'panel_queries',
+        query_1_title: 'Nest 1',
+        query_1_filters: [
+          {
+            clause: 'WHERE',
+            expressionType: 'SIMPLE',
+            subject: 'NestNum',
+            operator: '==',
+            comparator: '1',
+          },
+        ],
+      },
+      width: 800,
+      height: 600,
+      theme: supersetTheme,
+      queriesData: [
+        {
+          data: [
+            {
+              'PalletDate Time': '2026-03-18T10:00:00',
+              NestNum: '1',
+              'AVG(TopAdhesiveOD)': 7.2,
+            },
+          ],
+        },
+      ],
+    });
+
+    const transformed = transformProps(panelQueryChartProps);
+
+    expect(transformed.xAxisColumn).toBe('PalletDate Time');
+    expect(transformed.panelQueries).toEqual([
+      {
+        key: 'query_1',
+        title: 'Nest 1',
+        yField: 'AVG(TopAdhesiveOD)',
+        yFieldType: 'metric',
+        filters: [
+          {
+            clause: 'WHERE',
+            expressionType: 'SIMPLE',
+            subject: 'NestNum',
+            operator: '==',
+            comparator: '1',
+          },
+        ],
+        data: [
+          {
+            'PalletDate Time': '2026-03-18T10:00:00',
+            NestNum: '1',
+            'AVG(TopAdhesiveOD)': 7.2,
+          },
+        ],
       },
     ]);
   });

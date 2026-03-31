@@ -10,6 +10,46 @@ import {
   SupersetPluginChartScatterStripQueryFormData,
 } from '../types';
 
+function getColumnLabel(column: unknown): string | undefined {
+  if (!column) {
+    return undefined;
+  }
+
+  if (typeof column === 'string') {
+    return column;
+  }
+
+  if (typeof column === 'object') {
+    const candidate = column as {
+      label?: unknown;
+      column_name?: unknown;
+      sqlExpression?: unknown;
+    };
+
+    if (typeof candidate.label === 'string' && candidate.label) {
+      return candidate.label;
+    }
+
+    if (typeof candidate.column_name === 'string' && candidate.column_name) {
+      return candidate.column_name;
+    }
+
+    if (typeof candidate.sqlExpression === 'string' && candidate.sqlExpression) {
+      return candidate.sqlExpression;
+    }
+  }
+
+  return String(column);
+}
+
+function normalizePanelFilters(filters: unknown): unknown[] {
+  if (!Array.isArray(filters)) {
+    return [];
+  }
+
+  return filters.filter(Boolean);
+}
+
 function parseOptionalNumber(value: string | number | undefined | null) {
   if (value === '' || typeof value === 'undefined') {
     return null;
@@ -42,27 +82,32 @@ function readPanelQueryConfigs(
   queriesData: ChartProps['queriesData'],
 ) {
   const configs = [];
-  let queryDataIndex = 0;
+  const sharedMetricLabels = ensureIsArray(fd.metrics)
+    .filter(Boolean)
+    .map((metric: unknown) => getMetricLabel(metric as any));
+  const sharedYField =
+    sharedMetricLabels[0] ?? getColumnLabel(fd.yColumn ?? fd.y_column) ?? '';
+  const sharedYFieldType = (sharedMetricLabels.length ? 'metric' : 'column') as
+    | 'metric'
+    | 'column';
+  const sharedData = (queriesData[0]?.data || []) as TimeseriesDataRecord[];
 
   for (let index = 1; index <= 7; index += 1) {
     const title = fd[`query_${index}_title` as const] ?? '';
-    const yColumn = fd[`query_${index}_y_column` as const];
-    const metric = fd[`query_${index}_metric` as const];
+    const filters = normalizePanelFilters(fd[`query_${index}_filters` as const]);
 
-    if (!yColumn && !metric) {
+    if (!filters.length) {
       continue;
     }
 
-    const metricLabel = metric ? getMetricLabel(metric as any) : undefined;
-    const yField = metricLabel ?? String(yColumn);
     configs.push({
       key: `query_${index}`,
-      title: title || yField,
-      yField,
-      yFieldType: (metricLabel ? 'metric' : 'column') as 'metric' | 'column',
-      data: (queriesData[queryDataIndex]?.data || []) as TimeseriesDataRecord[],
+      title: title || `Query ${index}`,
+      yField: sharedYField,
+      yFieldType: sharedYFieldType,
+      filters,
+      data: sharedData,
     });
-    queryDataIndex += 1;
   }
 
   return configs;
@@ -74,7 +119,9 @@ export default function transformProps(
   const { width, height, queriesData, formData } = chartProps;
   const fd = (((chartProps as unknown as { rawFormData?: QueryFormData }).rawFormData ||
     formData) as unknown) as SupersetPluginChartScatterStripQueryFormData;
-  const xAxisColumn = fd.x_axis ?? fd.xColumn ?? fd.x_column ?? fd.series;
+  const xAxisColumn = getColumnLabel(
+    fd.x_axis ?? fd.xColumn ?? fd.x_column ?? fd.series,
+  );
   const groupby = ensureIsArray(fd.groupby).filter(Boolean) as string[];
   const metricLabels = ensureIsArray(fd.metrics)
     .filter(Boolean)
@@ -100,10 +147,10 @@ export default function transformProps(
       : ([fd.yColumn ?? fd.y_column].filter(Boolean) as string[]),
     groupby,
     panelQueries,
-    panelColumn: fd.panelColumn ?? fd.panel_column,
-    xColumn: fd.xColumn ?? fd.x_column ?? xAxisColumn,
-    yColumn: fd.yColumn ?? fd.y_column,
-    labelColumn: fd.labelColumn ?? fd.label_column,
+    panelColumn: getColumnLabel(fd.panelColumn ?? fd.panel_column),
+    xColumn: getColumnLabel(fd.xColumn ?? fd.x_column) ?? xAxisColumn,
+    yColumn: getColumnLabel(fd.yColumn ?? fd.y_column),
+    labelColumn: getColumnLabel(fd.labelColumn ?? fd.label_column),
     panelCount: Number(panelCount || 7),
     pointSize: Number(pointSize || 6),
     xMin: parseOptionalNumber(fd.xMin ?? fd.x_min),

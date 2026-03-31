@@ -167,6 +167,153 @@ function formatSpecLabel(value: number) {
   return value.toFixed(3);
 }
 
+function normalizeComparatorValues(comparator: unknown): unknown[] {
+  if (Array.isArray(comparator)) {
+    return comparator;
+  }
+
+  if (typeof comparator === 'string' && comparator.includes(',')) {
+    return comparator
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
+  }
+
+  return typeof comparator === 'undefined' ? [] : [comparator];
+}
+
+function normalizeComparable(value: unknown) {
+  if (value === null || typeof value === 'undefined') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && String(value).trim() !== '') {
+    return numeric;
+  }
+
+  const dateValue = Date.parse(String(value));
+  if (!Number.isNaN(dateValue) && typeof value === 'string') {
+    return dateValue;
+  }
+
+  return String(value).toLowerCase();
+}
+
+function matchesComparator(rowValue: unknown, comparator: unknown) {
+  const left = normalizeComparable(rowValue);
+  const right = normalizeComparable(comparator);
+
+  if (left === null || right === null) {
+    return left === right;
+  }
+
+  return left === right;
+}
+
+function matchesLike(rowValue: unknown, comparator: unknown, caseInsensitive: boolean) {
+  if (rowValue == null || comparator == null) {
+    return false;
+  }
+
+  const value = String(rowValue);
+  const pattern = String(comparator)
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/%/g, '.*')
+    .replace(/_/g, '.');
+  const flags = caseInsensitive ? 'i' : '';
+
+  return new RegExp(`^${pattern}$`, flags).test(value);
+}
+
+function parseSimpleSqlFilter(sqlExpression: string) {
+  const match = sqlExpression.match(
+    /^\s*["`\[]?([^"`\]\s]+(?:\s+[^=<>!]+?)?)["`\]]?\s*(=|!=|<>|>=|<=|>|<)\s*('?)(.*?)\3\s*$/,
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    subject: match[1].trim(),
+    operator: match[2],
+    comparator: match[4],
+  };
+}
+
+function matchesSimpleFilter(row: Record<string, any>, filter: Record<string, any>) {
+  const subject = filter.subject == null ? '' : String(filter.subject);
+  const operator = String(filter.operator || '==').toUpperCase();
+  const comparator = filter.comparator;
+  const rowValue = row[subject];
+
+  switch (operator) {
+    case '==':
+    case '=':
+      return matchesComparator(rowValue, comparator);
+    case '!=':
+    case '<>':
+      return !matchesComparator(rowValue, comparator);
+    case '>':
+      return Number(rowValue) > Number(comparator);
+    case '<':
+      return Number(rowValue) < Number(comparator);
+    case '>=':
+      return Number(rowValue) >= Number(comparator);
+    case '<=':
+      return Number(rowValue) <= Number(comparator);
+    case 'IN':
+      return normalizeComparatorValues(comparator).some(value =>
+        matchesComparator(rowValue, value),
+      );
+    case 'NOT IN':
+      return !normalizeComparatorValues(comparator).some(value =>
+        matchesComparator(rowValue, value),
+      );
+    case 'LIKE':
+      return matchesLike(rowValue, comparator, false);
+    case 'ILIKE':
+      return matchesLike(rowValue, comparator, true);
+    case 'IS NULL':
+      return rowValue == null;
+    case 'IS NOT NULL':
+      return rowValue != null;
+    default:
+      return true;
+  }
+}
+
+function matchesPanelFilter(row: Record<string, any>, filter: unknown) {
+  if (!filter || typeof filter !== 'object') {
+    return true;
+  }
+
+  const candidate = filter as Record<string, any>;
+  if (candidate.clause && String(candidate.clause).toUpperCase() !== 'WHERE') {
+    return true;
+  }
+
+  if (String(candidate.expressionType || 'SIMPLE').toUpperCase() === 'SQL') {
+    if (typeof candidate.sqlExpression !== 'string' || !candidate.sqlExpression.trim()) {
+      return true;
+    }
+
+    const parsed = parseSimpleSqlFilter(candidate.sqlExpression);
+    return parsed ? matchesSimpleFilter(row, parsed) : true;
+  }
+
+  return matchesSimpleFilter(row, candidate);
+}
+
+function matchesAllPanelFilters(row: Record<string, any>, filters: unknown[]) {
+  return filters.every(filter => matchesPanelFilter(row, filter));
+}
+
 export default function ScatterStripChart({
   width,
   height,
@@ -267,9 +414,7 @@ export default function ScatterStripChart({
       };
     }
 
-    const sourceData = isPanelQueriesMode
-      ? panelQueries.flatMap(panelQuery => panelQuery.data)
-      : data;
+    const sourceData = isPanelQueriesMode ? data : data;
     const axisType = detectAxisType(sourceData.map(row => row[resolvedXAxis]));
     const xFormatter =
       axisType === 'time'
@@ -301,7 +446,9 @@ export default function ScatterStripChart({
         .slice(0, panelCount || panelQueries.length || 1)
         .map(panelQuery => ({
           panelKey: panelQuery.title,
-          rows: panelQuery.data as Record<string, any>[],
+          rows: (panelQuery.data as Record<string, any>[]).filter(row =>
+            matchesAllPanelFilters(row, panelQuery.filters),
+          ),
           yField: panelQuery.yField,
         }));
     } else {

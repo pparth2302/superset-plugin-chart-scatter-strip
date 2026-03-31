@@ -36,25 +36,14 @@ const panelQuerySections: ControlPanelConfig['controlPanelSections'] = Array.fro
       ],
       [
         {
-          name: `query_${index}_y_column`,
+          name: `query_${index}_filters`,
           config: {
-            ...sharedControls.series,
-            label: t(`Query ${index} Y Column`),
+            type: 'AdhocFilterControl',
+            label: t(`Query ${index} Filter`),
+            default: [],
+            renderTrigger: true,
             description: t(
-              'Raw Y column or SQL expression for this panel. Use this for point-level scatter values.',
-            ),
-          },
-        },
-      ],
-      [
-        {
-          name: `query_${index}_metric`,
-          config: {
-            ...sharedControls.metric,
-            label: t(`Query ${index} Y Metric / Custom SQL`),
-            validators: [],
-            description: t(
-              'Optional aggregated metric or custom SQL metric for this panel. If set, it overrides the raw Y column.',
+              'Filter this graph to a subset of the shared X and Y query, for example NestNum = 1.',
             ),
           },
         },
@@ -84,7 +73,7 @@ const config: ControlPanelConfig = {
                 ['split_by_dimension', t('Split by Dimension (Legacy)')],
               ],
               description: t(
-                'Use Panel Queries to define up to seven joined panels with a shared X axis and separate Y definitions.',
+                'Use Panel Queries to define up to seven joined panels with a shared X and Y plus separate filters.',
               ),
             },
           },
@@ -105,7 +94,8 @@ const config: ControlPanelConfig = {
             name: 'metrics',
             config: {
               ...sharedControls.metrics,
-              label: t('Metrics'),
+              label: t('Y-axis'),
+              description: t('Shared Y metric used across all strip panels.'),
             },
           },
         ],

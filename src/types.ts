@@ -29,6 +29,7 @@ export interface ScatterStripPanelQueryConfig {
   title: string;
   yField: string;
   yFieldType: 'column' | 'metric';
+  filters: unknown[];
   data: TimeseriesDataRecord[];
 }
 
@@ -109,7 +110,7 @@ export type SupersetPluginChartScatterStripQueryFormData = QueryFormData &
     chart_title?: string;
     panel_header_title?: string;
     query_mode?: ScatterStripQueryMode;
-    x_axis?: string;
+    x_axis?: unknown;
     metrics?: QueryFormMetric[];
     groupby?: string[];
     contributionMode?: string | null;
@@ -165,10 +166,10 @@ export type SupersetPluginChartScatterStripQueryFormData = QueryFormData &
     spec_band_color?: string;
     spec_line_color?: string;
     logAxis?: boolean;
-    panelColumn?: string;
-    xColumn?: string;
-    yColumn?: string;
-    labelColumn?: string;
+    panelColumn?: unknown;
+    xColumn?: unknown;
+    yColumn?: unknown;
+    labelColumn?: unknown;
     panelCount?: string | number;
     pointSize?: string | number;
     xMin?: string | number;
@@ -176,10 +177,10 @@ export type SupersetPluginChartScatterStripQueryFormData = QueryFormData &
     yMin?: string | number;
     yMax?: string | number;
     showRegressionLine?: boolean;
-    panel_column?: string;
-    x_column?: string;
-    y_column?: string;
-    label_column?: string;
+    panel_column?: unknown;
+    x_column?: unknown;
+    y_column?: unknown;
+    label_column?: unknown;
     panel_count?: string | number;
     point_size?: string | number;
     x_min?: string | number;
@@ -196,26 +197,19 @@ export type SupersetPluginChartScatterStripQueryFormData = QueryFormData &
     specLineColor?: string;
     row_limit?: string | number;
     query_1_title?: string;
-    query_1_y_column?: string;
-    query_1_metric?: QueryFormMetric;
+    query_1_filters?: unknown[];
     query_2_title?: string;
-    query_2_y_column?: string;
-    query_2_metric?: QueryFormMetric;
+    query_2_filters?: unknown[];
     query_3_title?: string;
-    query_3_y_column?: string;
-    query_3_metric?: QueryFormMetric;
+    query_3_filters?: unknown[];
     query_4_title?: string;
-    query_4_y_column?: string;
-    query_4_metric?: QueryFormMetric;
+    query_4_filters?: unknown[];
     query_5_title?: string;
-    query_5_y_column?: string;
-    query_5_metric?: QueryFormMetric;
+    query_5_filters?: unknown[];
     query_6_title?: string;
-    query_6_y_column?: string;
-    query_6_metric?: QueryFormMetric;
+    query_6_filters?: unknown[];
     query_7_title?: string;
-    query_7_y_column?: string;
-    query_7_metric?: QueryFormMetric;
+    query_7_filters?: unknown[];
     // Backward-compatible fallback used by the starter test/template.
     series?: string;
   };
