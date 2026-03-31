@@ -48,7 +48,6 @@ function readPanelQueryConfigs(
     const title = fd[`query_${index}_title` as const] ?? '';
     const yColumn = fd[`query_${index}_y_column` as const];
     const metric = fd[`query_${index}_metric` as const];
-    const whereSql = fd[`query_${index}_where_sql` as const] ?? '';
 
     if (!yColumn && !metric) {
       continue;
@@ -61,7 +60,6 @@ function readPanelQueryConfigs(
       title: title || yField,
       yField,
       yFieldType: (metricLabel ? 'metric' : 'column') as 'metric' | 'column',
-      whereSql,
       data: (queriesData[queryDataIndex]?.data || []) as TimeseriesDataRecord[],
     });
     queryDataIndex += 1;

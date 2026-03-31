@@ -29,7 +29,6 @@ export interface ScatterStripPanelQueryConfig {
   title: string;
   yField: string;
   yFieldType: 'column' | 'metric';
-  whereSql: string;
   data: TimeseriesDataRecord[];
 }
 
@@ -199,31 +198,24 @@ export type SupersetPluginChartScatterStripQueryFormData = QueryFormData &
     query_1_title?: string;
     query_1_y_column?: string;
     query_1_metric?: QueryFormMetric;
-    query_1_where_sql?: string;
     query_2_title?: string;
     query_2_y_column?: string;
     query_2_metric?: QueryFormMetric;
-    query_2_where_sql?: string;
     query_3_title?: string;
     query_3_y_column?: string;
     query_3_metric?: QueryFormMetric;
-    query_3_where_sql?: string;
     query_4_title?: string;
     query_4_y_column?: string;
     query_4_metric?: QueryFormMetric;
-    query_4_where_sql?: string;
     query_5_title?: string;
     query_5_y_column?: string;
     query_5_metric?: QueryFormMetric;
-    query_5_where_sql?: string;
     query_6_title?: string;
     query_6_y_column?: string;
     query_6_metric?: QueryFormMetric;
-    query_6_where_sql?: string;
     query_7_title?: string;
     query_7_y_column?: string;
     query_7_metric?: QueryFormMetric;
-    query_7_where_sql?: string;
     // Backward-compatible fallback used by the starter test/template.
     series?: string;
   };

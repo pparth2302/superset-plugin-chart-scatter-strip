@@ -47,10 +47,8 @@ describe('SupersetPluginChartScatterStrip buildQuery', () => {
       query_mode: 'panel_queries',
       query_1_title: 'Nest 1',
       query_1_y_column: 'nest_1_value',
-      query_1_where_sql: 'nest_id = 1',
       query_2_title: 'Nest 2',
       query_2_metric: 'MAX(nest_2_value)',
-      query_2_where_sql: 'nest_id = 2',
       viz_type: 'my_chart',
     });
 
@@ -62,11 +60,11 @@ describe('SupersetPluginChartScatterStrip buildQuery', () => {
     ]);
     expect(queryContext.queries[0].metrics).toEqual([]);
     expect(queryContext.queries[0].orderby).toEqual([['event_time', true]]);
-    expect(queryContext.queries[0].extras?.where).toContain('nest_id = 1');
+    expect(queryContext.queries[0].extras?.where).toBeUndefined();
 
     expect(queryContext.queries[1].columns).toEqual(['event_time']);
     expect(queryContext.queries[1].metrics).toEqual(['MAX(nest_2_value)']);
     expect(queryContext.queries[1].orderby).toEqual([['event_time', true]]);
-    expect(queryContext.queries[1].extras?.where).toContain('nest_id = 2');
+    expect(queryContext.queries[1].extras?.where).toBeUndefined();
   });
 });

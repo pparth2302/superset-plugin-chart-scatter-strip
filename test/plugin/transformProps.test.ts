@@ -145,7 +145,6 @@ describe('SupersetPluginChartScatterStrip transformProps', () => {
         title: 'Nest 1',
         yField: 'nest_1_value',
         yFieldType: 'column',
-        whereSql: '',
         data: [{ ds: '2026-03-18', nest_1_value: 7.2 }],
       },
       {
@@ -153,7 +152,6 @@ describe('SupersetPluginChartScatterStrip transformProps', () => {
         title: 'Nest 2',
         yField: 'MAX(nest_2_value)',
         yFieldType: 'metric',
-        whereSql: '',
         data: [{ ds: '2026-03-18', 'MAX(nest_2_value)': 7.1 }],
       },
     ]);

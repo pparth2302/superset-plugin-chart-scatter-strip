@@ -15,14 +15,12 @@ function readPanelQueries(fd: SupersetPluginChartScatterStripQueryFormData) {
     title: string;
     yColumn?: string;
     metric?: QueryFormMetric;
-    whereSql: string;
   }> = [];
 
   for (let index = 1; index <= 7; index += 1) {
     const title = fd[`query_${index}_title` as const] ?? '';
     const yColumn = fd[`query_${index}_y_column` as const];
     const metric = fd[`query_${index}_metric` as const] as QueryFormMetric | undefined;
-    const whereSql = fd[`query_${index}_where_sql` as const] ?? '';
 
     if (!yColumn && !metric) {
       continue;
@@ -32,7 +30,6 @@ function readPanelQueries(fd: SupersetPluginChartScatterStripQueryFormData) {
       title,
       yColumn,
       metric,
-      whereSql,
     });
   }
 
@@ -65,8 +62,6 @@ export default function buildQuery(formData: QueryFormData) {
           .concat(labelColumn && !panelQuery.metric ? [labelColumn] : [])
           .filter(Boolean) as string[];
         const queryMetrics = panelQuery.metric ? [panelQuery.metric] : [];
-        const baseWhere = baseQueryObject.extras?.where;
-        const mergedWhere = [baseWhere, panelQuery.whereSql].filter(Boolean).join(' AND ');
 
         return {
           ...baseQueryObject,
@@ -77,10 +72,6 @@ export default function buildQuery(formData: QueryFormData) {
           series_columns: [],
           is_timeseries: false,
           post_processing: [],
-          extras: {
-            ...baseQueryObject.extras,
-            where: mergedWhere || undefined,
-          },
         };
       }),
     );

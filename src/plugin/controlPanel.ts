@@ -27,10 +27,10 @@ const panelQuerySections: ControlPanelConfig['controlPanelSections'] = Array.fro
           name: `query_${index}_title`,
           config: {
             type: 'TextControl',
-            label: t(`Query ${index} Title`),
+            label: t(`Query ${index} Column Label`),
             default: '',
             renderTrigger: true,
-            description: t('Optional panel title override.'),
+            description: t('Optional text label shown for this graph.'),
           },
         },
       ],
@@ -52,22 +52,9 @@ const panelQuerySections: ControlPanelConfig['controlPanelSections'] = Array.fro
           config: {
             ...sharedControls.metric,
             label: t(`Query ${index} Y Metric / Custom SQL`),
+            validators: [],
             description: t(
               'Optional aggregated metric or custom SQL metric for this panel. If set, it overrides the raw Y column.',
-            ),
-          },
-        },
-      ],
-      [
-        {
-          name: `query_${index}_where_sql`,
-          config: {
-            type: 'TextControl',
-            label: t(`Query ${index} WHERE SQL`),
-            default: '',
-            renderTrigger: true,
-            description: t(
-              'Optional SQL predicate appended only to this panel query, for example nest_id = 1.',
             ),
           },
         },
@@ -109,16 +96,6 @@ const config: ControlPanelConfig = {
               ...sharedControls.series,
               label: t('X-axis'),
               description: t('Shared x-axis field used across all strip panels.'),
-            },
-          },
-          {
-            name: 'label_column',
-            config: {
-              ...sharedControls.series,
-              label: t('Label Column'),
-              description: t(
-                'Optional tooltip label field used for row-level panel queries.',
-              ),
             },
           },
         ],
