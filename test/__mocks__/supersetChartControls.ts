@@ -10,6 +10,7 @@ export const sections = {
 };
 
 export const sharedControls = {
+  adhoc_filters: {},
   groupby: {},
   metrics: {},
   series: {},

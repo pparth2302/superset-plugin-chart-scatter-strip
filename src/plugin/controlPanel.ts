@@ -38,7 +38,7 @@ const panelQuerySections: ControlPanelConfig['controlPanelSections'] = Array.fro
         {
           name: `query_${index}_filters`,
           config: {
-            type: 'AdhocFilterControl',
+            ...sharedControls.adhoc_filters,
             label: t(`Query ${index} Filter`),
             default: [],
             renderTrigger: true,
